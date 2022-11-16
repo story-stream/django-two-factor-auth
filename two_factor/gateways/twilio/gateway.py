@@ -9,8 +9,10 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.utils import translation
 from django.utils.translation import ugettext, pgettext
-from twilio.rest import TwilioRestClient
+from twilio.rest import Client
+
 from two_factor.middleware.threadlocals import get_current_request
+
 
 # Supported voice languages, see http://bit.ly/187I5cr
 VOICE_LANGUAGES = ('en', 'en-gb', 'es', 'fr', 'it', 'de', 'da-DK', 'de-DE',
@@ -39,9 +41,10 @@ class Twilio(object):
 
     .. _Twilio: http://www.twilio.com/
     """
+
     def __init__(self):
-        self.client = TwilioRestClient(getattr(settings, 'TWILIO_ACCOUNT_SID'),
-                                       getattr(settings, 'TWILIO_AUTH_TOKEN'))
+        self.client = Client(getattr(settings, 'TWILIO_ACCOUNT_SID'),
+                             getattr(settings, 'TWILIO_AUTH_TOKEN'))
 
     def make_call(self, device, token):
         locale = translation.get_language()
@@ -51,12 +54,13 @@ class Twilio(object):
         url = reverse('two_factor:twilio_call_app', kwargs={'token': token})
         url = '%s?%s' % (url, urlencode({'locale': locale}))
         uri = request.build_absolute_uri(url)
-        self.client.calls.create(to=device.number, from_=getattr(settings, 'TWILIO_CALLER_ID'),
-                                 url=uri, method='GET', if_machine='Hangup', timeout=15)
+        self.client.calls.create(to=device.number.as_e164,
+                                 from_=getattr(settings, 'TWILIO_CALLER_ID'),
+                                 url=uri, method='GET', timeout=15)
 
     def send_sms(self, device, token):
         body = ugettext('Your authentication token is %s') % token
-        self.client.sms.messages.create(
+        self.client.messages.create(
             to=device.number,
             from_=getattr(settings, 'TWILIO_CALLER_ID'),
             body=body)
