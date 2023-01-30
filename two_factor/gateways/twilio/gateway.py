@@ -9,7 +9,7 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.utils import translation
 from django.utils.translation import ugettext, pgettext
-from twilio.rest import Client
+import requests
 
 from two_factor.middleware.threadlocals import get_current_request
 
@@ -42,10 +42,6 @@ class Twilio(object):
     .. _Twilio: http://www.twilio.com/
     """
 
-    def __init__(self):
-        self.client = Client(getattr(settings, 'TWILIO_ACCOUNT_SID'),
-                             getattr(settings, 'TWILIO_AUTH_TOKEN'))
-
     def make_call(self, device, token):
         locale = translation.get_language()
         validate_voice_locale(locale)
@@ -60,10 +56,16 @@ class Twilio(object):
 
     def send_sms(self, device, token):
         body = ugettext('Your authentication token is %s') % token
-        self.client.messages.create(
-            to=device.number,
-            from_=getattr(settings, 'TWILIO_CALLER_ID'),
-            body=body)
+        requests.post(
+            getattr(settings, 'TWILIO_ENDPOINT'),
+            json={
+                'to': device.number,
+                'body': body,
+            },
+            headers={
+				'x-api-key': getattr(settings, 'TWILIO_ENDPOINT_API_KEY'),
+			}
+        )
 
 
 def validate_voice_locale(locale):
